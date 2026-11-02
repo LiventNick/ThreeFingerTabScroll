@@ -27,11 +27,8 @@ arrow on the taskbar).
 > **"Windows protected your PC"?** Windows SmartScreen can warn about new apps it hasn't seen much yet.
 > Click **More info**, then **Run anyway**.
 
-**Other options:**
-- `ThreeFingerTabScroll-win-Setup.exe` - one-click install, no questions asked.
-- `ThreeFingerTabScroll-win-Portable.zip` - no install: unzip anywhere and run `ThreeFingerTabScroll.exe`.
-
-All of them update themselves the same way.
+**Prefer not to install?** Download `ThreeFingerTabScroll-win-Portable.zip`, unzip it anywhere and run
+`ThreeFingerTabScroll.exe`. The portable version updates itself too.
 
 **Using winget?** `winget install LiventNick.ThreeFingerTabScroll` *(available once the listing is approved)*.
 

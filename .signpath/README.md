@@ -33,8 +33,8 @@ in `.github/workflows/release.yml`.
 
 - `ThreeFingerTabScroll.exe` and `ThreeFingerTabScroll.dll` (the app's own code), before packaging,
   so installed copies and every update are signed.
-- `ThreeFingerTabScroll-win-Setup.exe` (the one-click installer, also embedded in the wizard) and
-  `ThreeFingerTabScroll-Installer.exe` (the install wizard), the installers people download.
+- `ThreeFingerTabScroll-Installer.exe`, the installer people download, and Velopack's
+  `ThreeFingerTabScroll-win-Setup.exe`, which runs from inside it.
 
 The .NET runtime files are already signed by Microsoft and are left alone. SignPath Foundation only
 signs code from the project itself.

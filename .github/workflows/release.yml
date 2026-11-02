@@ -74,7 +74,7 @@ jobs:
         shell: pwsh
         run: Copy-Item publish-signed\* publish -Recurse -Force
 
-      # ---- 2. Package with Velopack: one-click Setup.exe, portable zip, update packages ----
+      # ---- 2. Package with Velopack: Setup.exe (used inside the wizard), portable zip, update packages ----
 
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
@@ -91,7 +91,7 @@ jobs:
           --packTitle "Three-Finger Tab Scroll" --packAuthors LiventNick
           --icon assets/app.ico -o releases
 
-      # ---- 3. Sign the one-click installer (it's also embedded in the wizard below) ----
+      # ---- 3. Sign Velopack's Setup.exe (it runs from inside the wizard below) ----
 
       - name: Upload Setup.exe for signing
         id: upload-setup
@@ -166,10 +166,14 @@ jobs:
           --publish --releaseName "Three-Finger Tab Scroll ${{ env.VERSION }}" --tag ${{ github.ref_name }}
           -o releases
 
-      - name: Add install wizard to the release
+      # People download the wizard; Velopack's one-click Setup.exe is only used inside it, so it's
+      # removed from the release (updates don't need it).
+      - name: Swap one-click Setup.exe for the install wizard
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} releases/ThreeFingerTabScroll-Installer.exe --clobber
+        run: |
+          gh release upload ${{ github.ref_name }} releases/ThreeFingerTabScroll-Installer.exe --clobber
+          gh release delete-asset ${{ github.ref_name }} ThreeFingerTabScroll-win-Setup.exe --yes
 
       # ---- 6. winget: send the new version to the Windows Package Manager catalog ----
       # Runs once the package is in winget (first submission is manual) and the WINGET_TOKEN secret is set.
@@ -181,5 +185,5 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ThreeFingerTabScroll-win-Setup.exe"
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ThreeFingerTabScroll-Installer.exe"
           .\wingetcreate.exe update LiventNick.ThreeFingerTabScroll --version $env:VERSION --urls $url --submit --token $env:WINGET_TOKEN

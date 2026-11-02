@@ -6,7 +6,7 @@ namespace ThreeFingerTabScroll;
 
 /// <summary>
 /// Checks GitHub Releases for new versions and installs them, using Velopack.
-/// Works when the app was installed with Setup.exe (or run from the portable zip). For local builds
+/// Works when the app was installed with the installer (or run from the portable zip). For local builds
 /// (no repository URL baked in, or not installed) updates are simply unavailable.
 /// </summary>
 internal sealed class Updater
@@ -48,7 +48,7 @@ internal sealed class Updater
     /// <summary>Why updates are unavailable, for display; null when they work.</summary>
     public string? UnavailableReason =>
         RepositoryUrl == null ? "This is a local build, so it can't update itself."
-        : !CanUpdate ? "Updates work when the app is installed with the Setup.exe from GitHub."
+        : !CanUpdate ? "Updates work when the app is installed with the installer from GitHub."
         : null;
 
     public string CurrentVersion => _manager?.IsInstalled == true ? _manager.CurrentVersion?.ToString() ?? AppVersion : AppVersion;

@@ -8,8 +8,8 @@ winget install LiventNick.ThreeFingerTabScroll
 ```
 
 Installs through winget don't trigger the SmartScreen warning. winget runs the same
-`ThreeFingerTabScroll-win-Setup.exe` as a normal download, so the app's own automatic updates keep
-working exactly the same way.
+`ThreeFingerTabScroll-Installer.exe` as a normal download (silently, with "Start with Windows" on),
+so the app's own automatic updates keep working exactly the same way.
 
 ## First submission (once, by hand)
 
@@ -21,7 +21,7 @@ Do this after the first release (e.g. `v1.0.0`) is published on GitHub.
 3. Run:
 
    ```
-   wingetcreate new https://github.com/LiventNick/ThreeFingerTabScroll/releases/download/v1.0.0/ThreeFingerTabScroll-win-Setup.exe
+   wingetcreate new https://github.com/LiventNick/ThreeFingerTabScroll/releases/download/v1.0.0/ThreeFingerTabScroll-Installer.exe
    ```
 
    Answer the prompts with:
@@ -34,12 +34,20 @@ Do this after the first release (e.g. `v1.0.0`) is published on GitHub.
    | PackageName | `Three-Finger Tab Scroll` |
    | License | `MIT` |
    | ShortDescription | `ChromeOS-style three-finger tab switching for Windows touchpads` |
-   | InstallerType | `exe` |
+   | InstallerType | `inno` (winget then knows the silent switches itself) |
    | Scope | `user` |
-   | Silent / SilentWithProgress switches | `--silent` |
    | PackageUrl | `https://github.com/LiventNick/ThreeFingerTabScroll` |
 
-   When asked, let it submit the pull request using your token.
+   Before submitting, add this to the installer manifest it generates, under the installer entry. It tells
+   winget which Installed apps entry belongs to this package (the installer wizard itself registers none;
+   the app's entry is called `ThreeFingerTabScroll`):
+
+   ```yaml
+   AppsAndFeaturesEntries:
+   - ProductCode: ThreeFingerTabScroll
+   ```
+
+   Then let it submit the pull request using your token.
 4. Microsoft's bots validate the installer and a moderator reviews the pull request. This usually takes
    a few days. Fix anything their bot comments on, and it gets merged.
 

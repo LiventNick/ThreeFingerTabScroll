@@ -1,7 +1,7 @@
 ; Classic install wizard for Three-Finger Tab Scroll (Inno Setup 6).
 ;
-; It wraps Velopack's one-click installer (ThreeFingerTabScroll-win-Setup.exe), which does the actual
-; install and handles updates and uninstalling. This wizard only adds the familiar pages and the
+; It wraps Velopack's installer (ThreeFingerTabScroll-win-Setup.exe, not published on its own), which
+; does the actual install and handles updates and uninstalling. This wizard only adds the familiar pages and the
 ; "Start with Windows" choice, so it registers no uninstall entry of its own: the app appears once in
 ; Installed apps.
 ;
@@ -91,14 +91,17 @@ begin
     Exit;
 
   RegWriteDWordValue(HKCU, HandoffKey, 'InstallerStartWithWindows', Ord(WizardIsTaskSelected('autostart')));
-  RegWriteDWordValue(HKCU, HandoffKey, 'InstallerDeferLaunch', 1);
+  // Silent installs (e.g. winget) have no Finish page to open the app from, so let it open right away.
+  if not WizardSilent then
+    RegWriteDWordValue(HKCU, HandoffKey, 'InstallerDeferLaunch', 1);
 
   WizardForm.StatusLabel.Caption := 'Installing {#AppName}...';
   if not Exec(ExpandConstant('{tmp}\{#VelopackSetup}'), '--silent', '', SW_SHOWNORMAL,
               ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
   begin
     MsgBox('{#AppName} could not be installed (error ' + IntToStr(ResultCode) + ').' + #13#10#13#10 +
-           'Please try again, or download ThreeFingerTabScroll-win-Setup.exe from the GitHub releases page instead.',
+           'Please try again. If it keeps happening, please report it at' + #13#10 +
+           'github.com/LiventNick/ThreeFingerTabScroll/issues',
            mbError, MB_OK);
   end;
 end;

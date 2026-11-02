@@ -1,18 +1,22 @@
 name: Release
 
-# Publishes a new version to GitHub Releases. To release, push a version tag:
-#   git tag v1.1.0
-#   git push origin v1.1.0
+# Publishes a new version to GitHub Releases. Two ways to start it:
+#   - On GitHub: Actions > Release > Run workflow, enter the version (e.g. 1.1.0), click Run workflow.
+#   - Or push a version tag:  git tag v1.1.0  then  git push origin v1.1.0
 # Installed copies of the app find the new version on their next update check.
 #
 # Optional extras that switch on by themselves once configured
 # (GitHub > Settings > Secrets and variables > Actions):
-#   Code signing (free, SignPath Foundation): variable SIGNPATH_ORGANIZATION_ID + secret SIGNPATH_API_TOKEN
-#                                             (see .signpath/README.md)
-#   winget updates:                           secret WINGET_TOKEN (see docs/winget.md)
+#   Code signing (SignPath Foundation): variable SIGNPATH_ORGANIZATION_ID + secret SIGNPATH_API_TOKEN
+#   winget updates:                     secret WINGET_TOKEN
 on:
   push:
     tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 1.0.0 (must be higher than the last release)'
+        required: true
 
 permissions:
   contents: write # needed to create the release and upload files
@@ -33,11 +37,16 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Read version from tag
+      - name: Read version
         shell: pwsh
+        env:
+          # From the "Run workflow" box, or from the pushed tag (e.g. v1.2.0).
+          REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $version = $env:REQUESTED.Trim().TrimStart('v', 'V')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 1.2.3 (got '$env:REQUESTED')." }
           "VERSION=$version" >> $env:GITHUB_ENV
+          "TAG=v$version" >> $env:GITHUB_ENV
 
       - name: Build
         run: >
@@ -163,7 +172,8 @@ jobs:
       - name: Publish GitHub release
         run: >
           vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
-          --publish --releaseName "Three-Finger Tab Scroll ${{ env.VERSION }}" --tag ${{ github.ref_name }}
+          --publish --releaseName "Three-Finger Tab Scroll ${{ env.VERSION }}"
+          --tag ${{ env.TAG }} --targetCommitish ${{ github.sha }}
           -o releases
 
       # People download the wizard; Velopack's one-click Setup.exe is only used inside it, so it's
@@ -172,8 +182,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} releases/ThreeFingerTabScroll-Installer.exe --clobber
-          gh release delete-asset ${{ github.ref_name }} ThreeFingerTabScroll-win-Setup.exe --yes
+          gh release upload ${{ env.TAG }} releases/ThreeFingerTabScroll-Installer.exe --clobber
+          gh release delete-asset ${{ env.TAG }} ThreeFingerTabScroll-win-Setup.exe --yes
 
       # ---- 6. winget: send the new version to the Windows Package Manager catalog ----
       # Runs once the package is in winget (first submission is manual) and the WINGET_TOKEN secret is set.
@@ -185,5 +195,5 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ThreeFingerTabScroll-Installer.exe"
+          $url = "https://github.com/${{ github.repository }}/releases/download/$env:TAG/ThreeFingerTabScroll-Installer.exe"
           .\wingetcreate.exe update LiventNick.ThreeFingerTabScroll --version $env:VERSION --urls $url --submit --token $env:WINGET_TOKEN

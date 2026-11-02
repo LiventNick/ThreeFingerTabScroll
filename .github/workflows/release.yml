@@ -5,10 +5,11 @@ name: Release
 #   git push origin v1.1.0
 # Installed copies of the app find the new version on their next update check.
 #
-# Code signing (free, via SignPath Foundation) turns on automatically once these are set in
-# GitHub > Settings > Secrets and variables > Actions:
-#   variable SIGNPATH_ORGANIZATION_ID   and   secret SIGNPATH_API_TOKEN
-# Until then, releases are published unsigned. See .signpath/README.md.
+# Optional extras that switch on by themselves once configured
+# (GitHub > Settings > Secrets and variables > Actions):
+#   Code signing (free, SignPath Foundation): variable SIGNPATH_ORGANIZATION_ID + secret SIGNPATH_API_TOKEN
+#                                             (see .signpath/README.md)
+#   winget updates:                           secret WINGET_TOKEN (see docs/winget.md)
 on:
   push:
     tags: ['v*.*.*']
@@ -45,7 +46,7 @@ jobs:
           -p:RepositoryUrl=https://github.com/${{ github.repository }}
           -o publish
 
-      # ---- Sign the app's own files (before packaging, so installed and updated copies are signed) ----
+      # ---- 1. Sign the app's own files (before packaging, so installed and updated copies are signed) ----
 
       - name: Upload app files for signing
         id: upload-app
@@ -73,7 +74,7 @@ jobs:
         shell: pwsh
         run: Copy-Item publish-signed\* publish -Recurse -Force
 
-      # ---- Package ----
+      # ---- 2. Package with Velopack: one-click Setup.exe, portable zip, update packages ----
 
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
@@ -83,24 +84,24 @@ jobs:
         continue-on-error: true
         run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} -o releases
 
-      - name: Build installer and update packages
+      - name: Package
         run: >
           vpk pack --packId ThreeFingerTabScroll --packVersion ${{ env.VERSION }} --runtime win-x64
           --packDir publish --mainExe ThreeFingerTabScroll.exe
           --packTitle "Three-Finger Tab Scroll" --packAuthors LiventNick
           --icon assets/app.ico -o releases
 
-      # ---- Sign the installer people download ----
+      # ---- 3. Sign the one-click installer (it's also embedded in the wizard below) ----
 
-      - name: Upload installer for signing
+      - name: Upload Setup.exe for signing
         id: upload-setup
         if: env.SIGNING == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: installer-unsigned
+          name: setup-unsigned
           path: releases/ThreeFingerTabScroll-win-Setup.exe
 
-      - name: Sign installer
+      - name: Sign Setup.exe
         if: env.SIGNING == 'true'
         uses: signpath/github-action-submit-signing-request@v1
         with:
@@ -113,12 +114,51 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: setup-signed
 
-      - name: Use signed installer
+      - name: Use signed Setup.exe
         if: env.SIGNING == 'true'
         shell: pwsh
         run: Copy-Item setup-signed\ThreeFingerTabScroll-win-Setup.exe releases -Force
 
-      # ---- Publish ----
+      # ---- 4. Build the install wizard (Inno Setup) around Setup.exe ----
+
+      - name: Build install wizard
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            $iscc = Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe' | Select-Object -First 1
+          }
+          & $iscc.FullName "/DAppVersion=$env:VERSION" installer\ThreeFingerTabScroll.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload wizard for signing
+        id: upload-wizard
+        if: env.SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wizard-unsigned
+          path: releases/ThreeFingerTabScroll-Installer.exe
+
+      - name: Sign wizard
+        if: env.SIGNING == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ThreeFingerTabScroll
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: wizard
+          github-artifact-id: ${{ steps.upload-wizard.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: wizard-signed
+
+      - name: Use signed wizard
+        if: env.SIGNING == 'true'
+        shell: pwsh
+        run: Copy-Item wizard-signed\ThreeFingerTabScroll-Installer.exe releases -Force
+
+      # ---- 5. Publish ----
 
       - name: Publish GitHub release
         run: >
@@ -126,9 +166,13 @@ jobs:
           --publish --releaseName "Three-Finger Tab Scroll ${{ env.VERSION }}" --tag ${{ github.ref_name }}
           -o releases
 
-      # ---- winget: send the new version to the Windows Package Manager catalog ----
+      - name: Add install wizard to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} releases/ThreeFingerTabScroll-Installer.exe --clobber
+
+      # ---- 6. winget: send the new version to the Windows Package Manager catalog ----
       # Runs once the package is in winget (first submission is manual) and the WINGET_TOKEN secret is set.
-      # See docs/winget.md.
 
       - name: Update winget package
         if: env.WINGET == 'true'

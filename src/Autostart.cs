@@ -36,6 +36,50 @@ internal static class Autostart
             key.DeleteValue(ValueName, throwOnMissingValue: false);
     }
 
+    private const string HandoffKey = @"Software\ThreeFingerTabScroll";
+    private const string HandoffValue = "InstallerStartWithWindows";
+
+    /// <summary>
+    /// The install wizard records its "Start with Windows" checkbox in the registry (Velopack's installer
+    /// can't pass arguments through to the app). Returns that choice once, removing it, or null if none.
+    /// </summary>
+    public static bool? TakeInstallerChoice()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(HandoffKey, writable: true);
+            if (key?.GetValue(HandoffValue) is not int value) return null;
+            key.DeleteValue(HandoffValue, throwOnMissingValue: false);
+            return value != 0;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private const string DeferLaunchValue = "InstallerDeferLaunch";
+
+    /// <summary>
+    /// The install wizard sets this before running Velopack's installer, which always starts the app when
+    /// it finishes. The wizard opens the app itself from its Finish page instead (if the user wants), so the
+    /// copy Velopack starts should quietly exit. Returns true once if the flag was set, removing it.
+    /// </summary>
+    public static bool TakeInstallerDeferFlag()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(HandoffKey, writable: true);
+            if (key?.GetValue(DeferLaunchValue) is not int value) return false;
+            key.DeleteValue(DeferLaunchValue, throwOnMissingValue: false);
+            return value != 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>If autostart is on but points at an old location (the .exe was moved), update it.</summary>
     public static void RefreshPathIfEnabled()
     {

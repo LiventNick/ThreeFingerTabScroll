@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SignPath artifact configuration "installer": signs the Setup.exe that people download. -->
+<!-- SignPath artifact configuration "installer": signs Velopack's one-click Setup.exe. -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <zip-file>
     <pe-file path="ThreeFingerTabScroll-win-Setup.exe">

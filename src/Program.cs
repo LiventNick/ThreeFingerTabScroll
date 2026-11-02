@@ -25,8 +25,21 @@ internal static class Program
             .OnBeforeUninstallFastCallback(_ => { try { Autostart.Set(false); } catch { } })
             .Run();
 
+        // Started by Velopack's installer while the install wizard is still open: the wizard's
+        // "Open app now" checkbox decides whether to open the app, so this copy exits quietly.
+        bool deferredByInstaller = Autostart.TakeInstallerDeferFlag();
+        if (deferredByInstaller && !args.Contains("--from-installer", StringComparer.OrdinalIgnoreCase))
+            return;
+
         bool debug = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
         bool frames = args.Contains("--frames", StringComparer.OrdinalIgnoreCase);
+
+        // The install wizard's "Start with Windows" checkbox, if the app was just installed with it.
+        bool? installerAutostart = Autostart.TakeInstallerChoice();
+        if (installerAutostart is { } autostart)
+        {
+            try { Autostart.Set(autostart); } catch { /* registry unavailable; not fatal */ }
+        }
 
         if (args.Contains("--list-tabs", StringComparer.OrdinalIgnoreCase))
         {
@@ -73,9 +86,9 @@ internal static class Program
         };
 
         var settings = Settings.Load(log);
-        if (!settings.FirstRunMessageShown || justInstalled)
+        if (!settings.FirstRunMessageShown || justInstalled || installerAutostart != null)
         {
-            ShowWelcome();
+            ShowWelcome(askAboutAutostart: installerAutostart == null);
             settings.FirstRunMessageShown = true;
             try { settings.Save(); } catch (Exception ex) { log?.Invoke($"Could not save settings: {ex.Message}"); }
         }
@@ -97,11 +110,14 @@ internal static class Program
     }
 
     /// <summary>Welcome window on first run / right after installing; applies the "Start with Windows" choice.</summary>
-    private static void ShowWelcome()
+    private static void ShowWelcome(bool askAboutAutostart)
     {
-        using var welcome = new WelcomeForm();
+        using var welcome = new WelcomeForm(askAboutAutostart);
         welcome.ShowDialog();
-        try { Autostart.Set(welcome.StartWithWindows); } catch { /* registry unavailable; not fatal */ }
+        if (askAboutAutostart)
+        {
+            try { Autostart.Set(welcome.StartWithWindows); } catch { /* registry unavailable; not fatal */ }
+        }
     }
 
     private static void OnError(Exception ex, Action<string>? log)

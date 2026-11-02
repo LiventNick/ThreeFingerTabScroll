@@ -155,15 +155,36 @@ internal sealed class TrayApp : ApplicationContext
         else if (_settings.WarnAboutWindowsSwipe && WindowsGestureCheck.IsWindowsSwipeOn())
         {
             _log?.Invoke("notice: Windows three-finger swipe is still on");
-            Notify("Windows' three-finger swipe is on",
-                "It will switch apps while you switch tabs. Click to open touchpad settings and set Swipes to \"Nothing\".",
-                ToolTipIcon.Warning,
-                WindowsGestureCheck.OpenTouchpadSettings);
+            ShowSwipeReminder();
         }
         else if (Updater.JustUpdatedTo is { } version)
         {
             Notify("Three-Finger Tab Scroll updated", $"You're now on version {version}.", ToolTipIcon.Info, timeoutMs: 5000);
         }
+    }
+
+    private SwipeReminderForm? _swipeReminder;
+
+    /// <summary>Popup asking to turn off Windows' own three-finger swipe (non-blocking; the app keeps working).</summary>
+    private void ShowSwipeReminder()
+    {
+        if (_swipeReminder is { IsDisposed: false })
+        {
+            _swipeReminder.Activate();
+            return;
+        }
+        _swipeReminder = new SwipeReminderForm();
+        _swipeReminder.FormClosed += (_, _) =>
+        {
+            if (_swipeReminder?.DontRemind == true)
+            {
+                _settings.WarnAboutWindowsSwipe = false;
+                ApplyAndSave();
+            }
+            _swipeReminder = null;
+        };
+        _swipeReminder.Show();
+        _swipeReminder.Activate();
     }
 
     private static void OpenUrl(string url)

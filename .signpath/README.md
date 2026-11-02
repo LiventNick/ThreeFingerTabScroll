@@ -18,8 +18,9 @@ Until this is set up, the release workflow publishes unsigned builds. Nothing br
    - Connect the GitHub repository as a *trusted build system* (SignPath's onboarding walks you through it).
    - Create a project with the slug `ThreeFingerTabScroll`.
    - Create a signing policy with the slug `release-signing`.
-   - Create two artifact configurations, pasting in the files from `artifact-configurations/`:
-     slug `app-files` from `app-files.xml`, and slug `installer` from `installer.xml`.
+   - Create three artifact configurations, pasting in the files from `artifact-configurations/`:
+     slug `app-files` from `app-files.xml`, slug `installer` from `installer.xml`, and slug `wizard`
+     from `wizard.xml`.
    - Create an API token for a CI user that is allowed to submit signing requests.
 5. **In GitHub** (repository > Settings > Secrets and variables > Actions):
    - Add a **variable** `SIGNPATH_ORGANIZATION_ID` with your SignPath organization ID.
@@ -32,7 +33,8 @@ in `.github/workflows/release.yml`.
 
 - `ThreeFingerTabScroll.exe` and `ThreeFingerTabScroll.dll` (the app's own code), before packaging,
   so installed copies and every update are signed.
-- `ThreeFingerTabScroll-win-Setup.exe`, the installer people download.
+- `ThreeFingerTabScroll-win-Setup.exe` (the one-click installer, also embedded in the wizard) and
+  `ThreeFingerTabScroll-Installer.exe` (the install wizard), the installers people download.
 
 The .NET runtime files are already signed by Microsoft and are left alone. SignPath Foundation only
 signs code from the project itself.

@@ -19,8 +19,10 @@ internal sealed class WelcomeForm : Form
     /// <summary>The user's choice for starting with Windows.</summary>
     public bool StartWithWindows => _autostart.Checked;
 
-    public WelcomeForm()
+    /// <param name="askAboutAutostart">False when the installer already asked about starting with Windows.</param>
+    public WelcomeForm(bool askAboutAutostart = true)
     {
+        _autostart.Visible = askAboutAutostart;
         Text = "Welcome to Three-Finger Tab Scroll";
         Font = SystemFonts.MessageBoxFont ?? Font;
         AutoScaleMode = AutoScaleMode.Font;

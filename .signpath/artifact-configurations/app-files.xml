@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "app-files": signs the app's own program files inside the build
+  folder before it's packaged. Everything else in the folder (the .NET runtime, libraries) is left as is;
+  those files are already signed by their publishers.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="ThreeFingerTabScroll.exe">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="ThreeFingerTabScroll.dll">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

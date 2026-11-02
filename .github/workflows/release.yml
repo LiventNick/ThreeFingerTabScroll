@@ -1,0 +1,141 @@
+name: Release
+
+# Publishes a new version to GitHub Releases. To release, push a version tag:
+#   git tag v1.1.0
+#   git push origin v1.1.0
+# Installed copies of the app find the new version on their next update check.
+#
+# Code signing (free, via SignPath Foundation) turns on automatically once these are set in
+# GitHub > Settings > Secrets and variables > Actions:
+#   variable SIGNPATH_ORGANIZATION_ID   and   secret SIGNPATH_API_TOKEN
+# Until then, releases are published unsigned. See .signpath/README.md.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write # needed to create the release and upload files
+  actions: read   # lets SignPath fetch the build artifacts it signs
+
+env:
+  VPK_VERSION: 1.2.161 # keep in sync with the Velopack package version in ThreeFingerTabScroll.csproj
+  SIGNING: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+  WINGET: ${{ secrets.WINGET_TOKEN != '' }}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read version from tag
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Build
+        run: >
+          dotnet publish ThreeFingerTabScroll.csproj -c Release -r win-x64 --self-contained true
+          -p:Version=${{ env.VERSION }}
+          -p:RepositoryUrl=https://github.com/${{ github.repository }}
+          -o publish
+
+      # ---- Sign the app's own files (before packaging, so installed and updated copies are signed) ----
+
+      - name: Upload app files for signing
+        id: upload-app
+        if: env.SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-unsigned
+          path: publish/
+
+      - name: Sign app files
+        if: env.SIGNING == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ThreeFingerTabScroll
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: app-files
+          github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: publish-signed
+
+      - name: Use signed app files
+        if: env.SIGNING == 'true'
+        shell: pwsh
+        run: Copy-Item publish-signed\* publish -Recurse -Force
+
+      # ---- Package ----
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
+
+      # Lets vpk build a small "delta" update from the previous version. Fails harmlessly on the first release.
+      - name: Download previous release
+        continue-on-error: true
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} -o releases
+
+      - name: Build installer and update packages
+        run: >
+          vpk pack --packId ThreeFingerTabScroll --packVersion ${{ env.VERSION }} --runtime win-x64
+          --packDir publish --mainExe ThreeFingerTabScroll.exe
+          --packTitle "Three-Finger Tab Scroll" --packAuthors LiventNick
+          --icon assets/app.ico -o releases
+
+      # ---- Sign the installer people download ----
+
+      - name: Upload installer for signing
+        id: upload-setup
+        if: env.SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-unsigned
+          path: releases/ThreeFingerTabScroll-win-Setup.exe
+
+      - name: Sign installer
+        if: env.SIGNING == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ThreeFingerTabScroll
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.upload-setup.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: setup-signed
+
+      - name: Use signed installer
+        if: env.SIGNING == 'true'
+        shell: pwsh
+        run: Copy-Item setup-signed\ThreeFingerTabScroll-win-Setup.exe releases -Force
+
+      # ---- Publish ----
+
+      - name: Publish GitHub release
+        run: >
+          vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+          --publish --releaseName "Three-Finger Tab Scroll ${{ env.VERSION }}" --tag ${{ github.ref_name }}
+          -o releases
+
+      # ---- winget: send the new version to the Windows Package Manager catalog ----
+      # Runs once the package is in winget (first submission is manual) and the WINGET_TOKEN secret is set.
+      # See docs/winget.md.
+
+      - name: Update winget package
+        if: env.WINGET == 'true'
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ThreeFingerTabScroll-win-Setup.exe"
+          .\wingetcreate.exe update LiventNick.ThreeFingerTabScroll --version $env:VERSION --urls $url --submit --token $env:WINGET_TOKEN

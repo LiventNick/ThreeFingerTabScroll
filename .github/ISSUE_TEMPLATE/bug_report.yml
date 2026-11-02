@@ -1,0 +1,90 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Before you start, please check the
+        [troubleshooting section](https://github.com/LiventNick/ThreeFingerTabScroll#troubleshooting),
+        including that Windows' own three-finger swipe is set to **Nothing**.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+      placeholder: "I slid three fingers to the right in Firefox, but nothing happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Shown at the top of the tray icon's right-click menu.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Tab list
+        - Hover card
+        - Live
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: "Chrome 142, Firefox 145, Brave 1.85..."
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: "Settings > System > About > Windows specifications."
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+
+  - type: input
+    id: laptop
+    attributes:
+      label: Laptop / touchpad
+      description: Laptop model, if you know it.
+      placeholder: "Lenovo IdeaPad 5, ASUS Zenbook 14..."
+
+  - type: textarea
+    id: debug-log
+    attributes:
+      label: Debug log
+      description: |
+        Very helpful! Right-click the tray icon > **Exit**, then open a terminal and run:
+        `"%LocalAppData%\ThreeFingerTabScroll\current\ThreeFingerTabScroll.exe" --debug`
+        Repeat the problem, then copy the lines from the console window here.
+        (The log shows tab titles; remove any you don't want to share.)
+      render: text
+
+  - type: textarea
+    id: error-log
+    attributes:
+      label: Error log
+      description: |
+        If the file exists, paste the contents of `%AppData%\ThreeFingerTabScroll\error.log`
+        (tray menu > **Open settings and log folder**).
+      render: text
